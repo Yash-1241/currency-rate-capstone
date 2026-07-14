@@ -7,25 +7,15 @@
 
 
 ```mermaid
-
 flowchart LR
-
-&#x20;   A\[User or PowerShell] -->|GET /rates| B\[API Gateway HTTP API]
-
-&#x20;   B --> C\[AWS Lambda]
-
-&#x20;   C --> D\[AWS Secrets Manager]
-
-&#x20;   D -->|ExchangeRate API key| C
-
-&#x20;   C --> E\[ExchangeRate-API]
-
-&#x20;   E -->|EUR exchange rates| C
-
-&#x20;   C -->|EUR-INR, EUR-USD, EUR-GBP| F\[Amazon DynamoDB]
-
-&#x20;   C --> G\[Amazon CloudWatch Logs]
-
+    A[User or PowerShell] -->|GET rates| B[API Gateway HTTP API]
+    B --> C[AWS Lambda]
+    C --> D[AWS Secrets Manager]
+    D -->|API key| C
+    C --> E[ExchangeRate API]
+    E -->|EUR exchange rates| C
+    C -->|Selected currency rates| F[Amazon DynamoDB]
+    C --> G[Amazon CloudWatch Logs]
 ```
 
 
