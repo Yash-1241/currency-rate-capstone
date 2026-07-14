@@ -40,6 +40,8 @@ resource "aws_lambda_function" "currency_tracker" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
+  timeout = 15
+
   environment {
     variables = {
       SECRET_NAME    = aws_secretsmanager_secret.exchange_api_key.name
