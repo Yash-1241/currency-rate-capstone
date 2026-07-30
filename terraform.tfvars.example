@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and edit only the values you need.
+
+aws_region              = "us-east-1"
+project_name            = "currency-trend-alert"
+environment             = "dev"
+lab_role_name           = "LabRole"
+currency_pairs          = ["EUR/INR", "USD/INR", "GBP/INR"]
+alert_threshold_percent = 1.0
+schedule_expression     = "cron(0 7 * * ? *)"
+enable_schedule         = true
+
+# Optional. AWS sends a confirmation email after apply.
+alert_email = ""
+
+history_retention_days = 400
+log_retention_days     = 14

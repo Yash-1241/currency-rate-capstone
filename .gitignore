@@ -1,8 +1,35 @@
+# Terraform local files
 .terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars
-*.zip
+!terraform.tfvars.example
+tfplan
+tfplan.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Generated Lambda packages and outputs
+build/*.zip
+response.json
+final-response.json
+api-test.json
+
+# Python local files
 __pycache__/
 *.pyc
-crash.log
+.pytest_cache/
+.venv/
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Evidence is stored separately
+evidence/
