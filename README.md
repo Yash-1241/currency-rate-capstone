@@ -81,7 +81,7 @@ Verify them in PowerShell:
 aws sts get-caller-identity
 ```
 
-Both commands must succeed before Terraform is run. Learner Lab credentials expire, so repeat this step after restarting the lab.
+This command must succeed before Terraform is run. Learner Lab credentials expire, so repeat this step after restarting the lab.
 
 ## 2. Configure Terraform values
 
