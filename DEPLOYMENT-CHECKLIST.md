@@ -4,7 +4,6 @@ Use this as the exact order of work in AWS Academy Learner Lab.
 
 - [ ] Start Learner Lab and copy fresh AWS CLI credentials.
 - [ ] Run `aws sts get-caller-identity`.
-- [ ] Run `aws iam get-role --role-name LabRole`.
 - [ ] Copy `terraform.tfvars.example` to `terraform.tfvars`.
 - [ ] Optionally add an SNS email address.
 - [ ] Run `terraform init`.
