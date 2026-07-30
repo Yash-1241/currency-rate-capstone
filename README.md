@@ -292,11 +292,12 @@ Then confirm that the DynamoDB table, Lambda function, EventBridge rule, SNS top
 
 ### `NoSuchEntity: Role with name LabRole cannot be found`
 
-Run:
+1. Confirm that the AWS Academy Learner Lab is started.
+2. Refresh the temporary AWS CLI credentials from **AWS Details**.
+3. Verify the active credentials:
 
 ```powershell
-aws iam list-roles --query "Roles[].RoleName"
-```
+aws sts get-caller-identity
 
 Use the exact existing lab role name in `terraform.tfvars`. Do not add an `aws_iam_role` resource because Learner Lab commonly blocks role creation.
 
