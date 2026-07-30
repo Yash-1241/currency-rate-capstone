@@ -1,250 +1,316 @@
-# Currency Exchange Rate Trend Alert Service
+# Global Currency Trend & Converter
 
-Serverless AWS capstone implementation using Terraform, Python Lambda, DynamoDB, Secrets Manager, EventBridge, SNS, and CloudWatch.
+A serverless AWS capstone project that collects exchange-rate data, stores historical observations, calculates currency trends, sends threshold alerts, and provides a public interactive currency-conversion website.
+
+## Live Project
+
+- **Live AWS website:** [Global Currency Trend & Converter](https://y0ad11wgrl.execute-api.us-east-1.amazonaws.com/)
+- **GitHub repository:** [Yash-1241/currency-rate-capstone](https://github.com/Yash-1241/currency-rate-capstone)
+- **AWS region:** `us-east-1`
+- **Infrastructure:** Terraform
+- **Application language:** Python 3.12
+
+> The live website depends on the AWS Academy Learner Lab resources remaining available.
+
+## Team
+
+**Group 3**
+
+- Yash Gadher — 100007325
+- Nishchitha Seega Mallesha — 100007030
+
+## Project Overview
+
+The project contains two connected serverless workflows.
+
+### Scheduled trend-processing workflow
+
+Amazon EventBridge invokes the processor Lambda once per day. The Lambda:
+
+1. Reads the ExchangeRate-API key from AWS Secrets Manager.
+2. Requests current exchange rates.
+3. Calculates daily percentage movement.
+4. Calculates a rolling seven-sample average.
+5. Calculates the difference from the rolling average.
+6. Stores the results in Amazon DynamoDB.
+7. Publishes an Amazon SNS alert when the configured threshold is crossed.
+8. Sends logs and errors to Amazon CloudWatch.
+
+### Website and converter workflow
+
+A public Amazon API Gateway HTTP API invokes the website Lambda. The Lambda:
+
+1. Serves the dashboard webpage.
+2. Reads tracked historical records from DynamoDB.
+3. Provides the `/api/rates` JSON endpoint.
+4. Provides the `/api/convert` live conversion endpoint.
+5. Reads the API key securely from Secrets Manager.
+6. Calls ExchangeRate-API without exposing the secret to the browser.
+
+## Main Features
+
+- Fully serverless AWS architecture
+- Infrastructure provisioned with Terraform
+- Scheduled exchange-rate collection
+- Historical DynamoDB storage
+- Daily percentage-change calculation
+- Rolling seven-sample average
+- Currency trend classification
+- Configurable threshold alerts
+- SNS email notifications
+- Public AWS-hosted dashboard
+- Interactive amount-based currency converter
+- Five-minute converter-rate caching
+- CloudWatch logging and error monitoring
+- Unit tests for both Lambda applications
+
+## Tracked Currency Pairs
+
+The scheduled processor stores historical records for:
+
+```text
+EUR/INR
+USD/INR
+GBP/INR
+EUR/USD
+USD/JPY
+AUD/USD
+```
+
+These pairs receive:
+
+- scheduled observations,
+- historical storage,
+- daily-change calculations,
+- rolling averages,
+- trend information,
+- threshold-alert evaluation.
+
+The interactive converter supports 37 commonly used global currencies. Converter selections are not automatically stored as historical trend records.
 
 ## Architecture
 
+![Final AWS architecture](docs/architecture/final-architecture.png)
+
+### Scheduled processing flow
+
 ```text
-EventBridge daily rule
-        |
-        v
-AWS Lambda (Python)
-        |---- reads API key from Secrets Manager
-        |---- calls ExchangeRate-API
-        |---- reads/writes DynamoDB history
-        |---- publishes threshold alerts to SNS
-        v
-CloudWatch Logs + Lambda error alarm
+Amazon EventBridge
+        ↓
+Processor Lambda
+        ├── reads API key from Secrets Manager
+        ├── calls ExchangeRate-API
+        ├── stores history in DynamoDB
+        ├── publishes threshold alerts to SNS
+        └── writes logs to CloudWatch
 ```
 
-The default pairs are EUR/INR, USD/INR, and GBP/INR. The Lambda stores one item per pair per ExchangeRate-API observation date, calculates daily percentage movement, a rolling seven-sample average, the difference from that average, and a seven-sample change when enough history exists.
-
-## Important Learner Lab design decision
-
-This project does **not** create or attach IAM roles or policies. It looks up the existing AWS Academy `LabRole` and assigns that role to Lambda. This avoids the common Learner Lab `iam:CreateRole` denial.
-
-The existing `LabRole` still needs permission to:
-
-- read the created secret,
-- query, get, put, and update the DynamoDB table,
-- publish to the SNS topic,
-- write Lambda logs.
-
-The normal AWS Academy `LabRole` usually supplies broad lab permissions. If your lab has a more restricted role, Terraform cannot solve that without instructor-side IAM changes.
-
-## Project structure
+### Website and converter flow
 
 ```text
-currency-rate-trend-alert/
-|-- versions.tf
-|-- providers.tf
-|-- variables.tf
-|-- locals.tf
-|-- data.tf
-|-- dynamodb.tf
-|-- secrets.tf
-|-- sns.tf
-|-- lambda.tf
-|-- eventbridge.tf
-|-- cloudwatch.tf
-|-- outputs.tf
-|-- terraform.tfvars.example
-|-- src/
-|   `-- lambda_function.py
-|-- tests/
-|   `-- test_lambda_function.py
-|-- events/
-|   `-- manual-test.json
-`-- build/
-    `-- .gitkeep
+User browser
+        ↓
+Amazon API Gateway
+        ↓
+Website Lambda
+        ├── serves the dashboard
+        ├── reads trend records from DynamoDB
+        ├── reads the API key from Secrets Manager
+        ├── calls ExchangeRate-API for live conversions
+        └── writes logs to CloudWatch
+```
+
+## AWS Services
+
+| AWS service | Purpose |
+|---|---|
+| Amazon EventBridge | Runs the processor Lambda on a daily schedule |
+| AWS Lambda — Processor | Fetches rates, calculates trends, and stores results |
+| AWS Lambda — Website | Serves the dashboard and conversion API |
+| Amazon API Gateway | Provides the public website and API routes |
+| Amazon DynamoDB | Stores exchange-rate history and calculated trend values |
+| AWS Secrets Manager | Stores the ExchangeRate-API key securely |
+| Amazon SNS | Sends threshold and error-alert emails |
+| Amazon CloudWatch | Stores logs and monitors Lambda errors |
+| AWS IAM `LabRole` | Existing AWS Academy execution role reused by both Lambdas |
+
+## API Routes
+
+| Route | Purpose |
+|---|---|
+| `GET /` | Serves the website |
+| `GET /index.html` | Serves the website |
+| `GET /health` | Returns service-health information |
+| `GET /api/rates` | Returns tracked rates and recent history |
+| `GET /api/convert` | Performs a live amount-based currency conversion |
+
+Example converter request:
+
+```text
+GET /api/convert?from=EUR&to=INR&amount=100
+```
+
+Example response structure:
+
+```json
+{
+  "from": "EUR",
+  "to": "INR",
+  "amount": 100,
+  "conversion_rate": 101.25,
+  "converted_amount": 10125,
+  "provider": "ExchangeRate-API",
+  "generated_at": "UTC timestamp"
+}
+```
+
+The numeric values depend on the provider's current exchange rate.
+
+## Learner Lab IAM Design
+
+This project does **not** create an IAM role or IAM policy.
+
+Terraform reads the existing AWS Academy role:
+
+```hcl
+data "aws_iam_role" "lab_role" {
+  name = var.lab_role_name
+}
+```
+
+Both Lambda functions use the existing role ARN:
+
+```hcl
+role = data.aws_iam_role.lab_role.arn
+```
+
+This design avoids attempting restricted IAM role creation inside the AWS Academy Learner Lab.
+
+Terraform also creates Lambda resource-based permissions allowing:
+
+- EventBridge to invoke the processor Lambda.
+- API Gateway to invoke the website Lambda.
+
+These Lambda permissions are not IAM roles.
+
+## Project Structure
+
+```text
+currency-rate-capstone/
+├── src/
+│   └── lambda_function.py
+├── website/
+│   ├── handler.py
+│   └── index.html
+├── tests/
+│   ├── test_lambda_function.py
+│   └── test_website_handler.py
+├── events/
+│   └── manual-test.json
+├── docs/
+│   ├── architecture/
+│   │   └── final-architecture.png
+│   └── legacy/
+├── build/
+│   └── .gitkeep
+├── cloudwatch.tf
+├── data.tf
+├── dynamodb.tf
+├── eventbridge.tf
+├── lambda.tf
+├── locals.tf
+├── outputs.tf
+├── providers.tf
+├── secrets.tf
+├── sns.tf
+├── variables.tf
+├── versions.tf
+├── website.tf
+├── website_outputs.tf
+├── terraform.tfvars.example
+├── requirements-dev.txt
+├── DEPLOYMENT-CHECKLIST.md
+├── WEBSITE-SETUP.md
+├── UPGRADE-INSTRUCTIONS.md
+└── README.md
 ```
 
 ## Prerequisites
 
-1. An active AWS Academy Learner Lab session.
-2. AWS CLI configured with the current temporary lab credentials.
-3. Terraform 1.5 or later.
-4. A free ExchangeRate-API key.
-5. Python 3.12 or later only for local tests. Python dependencies are not needed in the Lambda package because the runtime already includes Boto3 and the code uses Python's standard HTTP library.
+- Active AWS Academy Learner Lab
+- AWS CLI
+- Terraform 1.5 or later
+- Python 3.12 or later for local tests
+- ExchangeRate-API key
+- Git
 
-## 1. Configure AWS Learner Lab credentials
+## Deployment
 
-Start the Learner Lab, open **AWS Details**, and copy the current CLI credentials into:
+### 1. Clone the repository
+
+```powershell
+git clone https://github.com/Yash-1241/currency-rate-capstone.git
+cd currency-rate-capstone
+```
+
+### 2. Configure AWS credentials
+
+Start the AWS Academy Learner Lab and copy the current temporary credentials into:
 
 ```text
 C:\Users\YOUR_USERNAME\.aws\credentials
 ```
 
-Verify them in PowerShell:
+Verify the session:
 
 ```powershell
 aws sts get-caller-identity
 ```
 
-This command must succeed before Terraform is run. Learner Lab credentials expire, so repeat this step after restarting the lab.
-
-## 2. Configure Terraform values
-
-From the project folder:
+### 3. Create local Terraform values
 
 ```powershell
 Copy-Item terraform.tfvars.example terraform.tfvars
 notepad terraform.tfvars
 ```
 
-At minimum, decide whether to add your email:
+Example configuration:
 
 ```hcl
-alert_email = "your.email@example.com"
+aws_region    = "us-east-1"
+project_name  = "currency-trend-alert"
+environment   = "dev"
+lab_role_name = "LabRole"
+
+currency_pairs = [
+  "EUR/INR",
+  "USD/INR",
+  "GBP/INR",
+  "EUR/USD",
+  "USD/JPY",
+  "AUD/USD"
+]
+
+alert_threshold_percent = 1.0
+schedule_expression     = "cron(0 7 * * ? *)"
+enable_schedule         = true
+alert_email             = "your.email@example.com"
+
+history_retention_days = 400
+log_retention_days     = 14
 ```
 
-Keep `aws_region = "us-east-1"` and `lab_role_name = "LabRole"` unless your lab explicitly shows a different role.
+`terraform.tfvars` is ignored by Git and must not be committed.
 
-## 3. Initialize and deploy
+### 4. Initialize and validate
 
 ```powershell
 terraform init
 terraform fmt -recursive
 terraform validate
-terraform plan -out tfplan
-terraform apply tfplan
 ```
 
-Terraform automatically packages `src/lambda_function.py` into `build/lambda_function.zip` through the Archive provider.
-
-## 4. Add the ExchangeRate-API key securely
-
-The secret resource is created by Terraform, but the key value is deliberately added outside Terraform so it never appears in `terraform.tfstate`.
-
-```powershell
-$secretArn = terraform output -raw exchange_rate_secret_arn
-aws secretsmanager put-secret-value `
-  --secret-id $secretArn `
-  --secret-string '{"api_key":"YOUR_REAL_API_KEY"}' `
-  --region us-east-1
-```
-
-Check only the secret metadata, not the value:
-
-```powershell
-aws secretsmanager describe-secret --secret-id $secretArn --region us-east-1
-```
-
-## 5. Confirm the SNS email subscription
-
-If `alert_email` was set, open the AWS SNS confirmation email and click **Confirm subscription**. Until that is done, exchange-rate and Lambda-error emails are not delivered.
-
-You can see the subscription state with:
-
-```powershell
-$topicArn = terraform output -raw sns_topic_arn
-aws sns list-subscriptions-by-topic --topic-arn $topicArn --region us-east-1
-```
-
-## 6. Run the first manual Lambda test
-
-```powershell
-$functionName = terraform output -raw lambda_function_name
-aws lambda invoke `
-  --function-name $functionName `
-  --cli-binary-format raw-in-base64-out `
-  --payload file://events/manual-test.json `
-  response.json
-Get-Content response.json
-```
-
-Expected first-run behavior:
-
-- three currency pairs are stored,
-- `daily_change_pct` is empty because there is no earlier record,
-- `trend_sample_count` is 1,
-- no movement alert is sent,
-- the invocation returns status code 200.
-
-## 7. Verify each AWS component
-
-### Lambda logs
-
-```powershell
-$logGroup = terraform output -raw cloudwatch_log_group
-aws logs tail $logGroup --since 30m --region us-east-1
-```
-
-### DynamoDB records
-
-```powershell
-$tableName = terraform output -raw dynamodb_table_name
-aws dynamodb scan --table-name $tableName --region us-east-1
-```
-
-In the AWS Console, go to **DynamoDB > Tables > your table > Explore table items**. You should see one item for each configured pair.
-
-### EventBridge schedule
-
-```powershell
-$ruleName = terraform output -raw eventbridge_rule_name
-aws events describe-rule --name $ruleName --region us-east-1
-aws events list-targets-by-rule --rule $ruleName --region us-east-1
-```
-
-The default schedule is `cron(0 7 * * ? *)`, which means every day at 07:00 UTC.
-
-### SNS topic
-
-```powershell
-aws sns get-topic-attributes --topic-arn $topicArn --region us-east-1
-```
-
-### CloudWatch error alarm
-
-In the console, go to **CloudWatch > Alarms > All alarms** and open the alarm ending in `lambda-errors`.
-
-## 8. Test the alert path without waiting for a real 1% market move
-
-Temporarily lower the threshold in `terraform.tfvars`:
-
-```hcl
-alert_threshold_percent = 0.0001
-```
-
-A daily percentage change still requires a previous-date item. For an immediate demonstration, add a controlled previous-day record for one pair before invoking Lambda again.
-
-PowerShell example:
-
-```powershell
-$tableName = terraform output -raw dynamodb_table_name
-$yesterday = (Get-Date).ToUniversalTime().AddDays(-1).ToString("yyyy-MM-dd")
-$expires = [int][double]::Parse((Get-Date -UFormat %s)) + (400 * 86400)
-
-aws dynamodb put-item `
-  --table-name $tableName `
-  --region us-east-1 `
-  --item "{\"pair\":{\"S\":\"EUR/INR\"},\"observed_at\":{\"S\":\"$yesterday\"},\"rate\":{\"N\":\"1\"},\"expires_at\":{\"N\":\"$expires\"}}"
-```
-
-Then apply the lower threshold and invoke Lambda:
-
-```powershell
-terraform apply -auto-approve
-aws lambda invoke `
-  --function-name $functionName `
-  --cli-binary-format raw-in-base64-out `
-  --payload file://events/manual-test.json `
-  response.json
-Get-Content response.json
-```
-
-This should create an obvious EUR/INR movement and publish an SNS message. After the screenshot/demo, restore the real threshold:
-
-```hcl
-alert_threshold_percent = 1.0
-```
-
-Then run `terraform apply -auto-approve` again. Delete the artificial record from DynamoDB if you do not want it in the final dataset.
-
-## 9. Run local unit tests
-
-Create and activate a virtual environment:
+### 5. Run unit tests
 
 ```powershell
 py -m venv .venv
@@ -253,70 +319,274 @@ python -m pip install -r requirements-dev.txt
 pytest -q
 ```
 
-## 10. Useful screenshots for the final submission
-
-Capture these after a successful invocation:
-
-1. Terraform `apply` output and `terraform output`.
-2. Lambda function configuration showing Python runtime and `LabRole`.
-3. CloudWatch log stream showing all three pairs processed.
-4. DynamoDB **Explore table items** showing the stored fields.
-5. EventBridge rule and Lambda target.
-6. SNS topic plus confirmed subscription.
-7. CloudWatch Lambda error alarm.
-8. An SNS alert email after the controlled alert test.
-
-Do not include the API key or the secret value in screenshots.
-
-## 11. Update application code
-
-After editing `src/lambda_function.py`, run:
+### 6. Review and apply the Terraform plan
 
 ```powershell
-terraform fmt -recursive
-terraform plan
-terraform apply
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-The Archive provider changes the ZIP checksum, so Terraform updates the Lambda code automatically.
+Review the plan before applying. It must not create IAM roles or IAM policies.
 
-## 12. Destroy resources when the capstone is finished
+### 7. Store the API key securely
+
+Terraform creates the secret resource but does not place the real API key in the Terraform configuration.
+
+```powershell
+$secretArn = terraform output -raw exchange_rate_secret_arn
+
+aws secretsmanager put-secret-value `
+  --secret-id $secretArn `
+  --secret-string '{"api_key":"YOUR_REAL_API_KEY"}' `
+  --region us-east-1
+```
+
+Do not store the API key in:
+
+- GitHub,
+- Terraform source files,
+- `terraform.tfvars`,
+- screenshots,
+- documentation.
+
+### 8. Confirm the SNS subscription
+
+When an alert email is configured, AWS sends a confirmation email.
+
+Open the message and select **Confirm subscription**.
+
+### 9. Run the processor manually
+
+```powershell
+$functionName = terraform output -raw lambda_function_name
+
+aws lambda invoke `
+  --function-name $functionName `
+  --cli-binary-format raw-in-base64-out `
+  --payload file://events/manual-test.json `
+  response.json
+
+Get-Content response.json
+```
+
+### 10. Open the website
+
+```powershell
+$websiteUrl = terraform output -raw website_url
+Start-Process $websiteUrl
+```
+
+## Website Testing
+
+### Health endpoint
+
+```powershell
+$websiteUrl = terraform output -raw website_url
+
+Invoke-RestMethod "$websiteUrl/health"
+```
+
+### Trend-data endpoint
+
+```powershell
+Invoke-RestMethod "$websiteUrl/api/rates?limit=7" |
+  ConvertTo-Json -Depth 10
+```
+
+### Converter endpoint
+
+```powershell
+Invoke-RestMethod `
+  "$websiteUrl/api/convert?from=EUR&to=INR&amount=100" |
+  ConvertTo-Json -Depth 10
+```
+
+## Terraform Outputs
+
+Useful outputs include:
+
+```powershell
+terraform output
+terraform output -raw lambda_function_name
+terraform output -raw dynamodb_table_name
+terraform output -raw eventbridge_rule_name
+terraform output -raw sns_topic_arn
+terraform output -raw website_url
+terraform output -raw website_rates_api_url
+terraform output -raw website_lambda_function_name
+```
+
+## Security Controls
+
+- API key stored in AWS Secrets Manager
+- API key never sent to the browser
+- No secrets committed to GitHub
+- Existing AWS Academy `LabRole` reused
+- No IAM role or IAM policy created
+- Converter currency codes validated against an allowlist
+- Conversion amount must be greater than zero
+- Maximum conversion amount enforced
+- API Gateway throttling enabled
+- DynamoDB data exposed only through the website Lambda
+- CloudWatch logging enabled
+- Terraform state and local variables ignored by Git
+- Lambda packages generated locally and excluded from Git
+
+## What Runs Locally and What Runs in AWS
+
+### Local development tools
+
+- Terraform CLI
+- AWS CLI
+- Git
+- Python unit tests
+- Source-code editing
+- Local Terraform state
+
+### AWS runtime services
+
+- Processor Lambda
+- Website Lambda
+- EventBridge schedule
+- API Gateway
+- DynamoDB
+- Secrets Manager
+- SNS
+- CloudWatch
+- Existing AWS Academy `LabRole`
+
+### External services
+
+- ExchangeRate-API
+- GitHub
+
+The computer can be switched off after deployment, and the AWS-hosted application can continue running while the Learner Lab resources remain available.
+
+## Monitoring
+
+Processor logs:
+
+```powershell
+$logGroup = terraform output -raw cloudwatch_log_group
+aws logs tail $logGroup --since 30m --region us-east-1
+```
+
+Website logs:
+
+```powershell
+$websiteLogGroup = terraform output -raw website_cloudwatch_log_group
+aws logs tail $websiteLogGroup --since 30m --region us-east-1
+```
+
+## Known Limitations
+
+- The public URL is the automatically generated API Gateway URL.
+- Website availability depends on the AWS Academy Learner Lab.
+- Trend records exist only for configured currency pairs.
+- The converter depends on ExchangeRate-API availability and quota.
+- Newly added trend pairs initially have only one historical observation.
+- A daily percentage change requires an earlier observation.
+- The default schedule uses UTC.
+- The public converter is intended for a university demonstration, not production financial use.
+
+## Troubleshooting
+
+### Learner Lab access is denied
+
+Messages containing the following often indicate expired or cancelled temporary credentials:
+
+```text
+voc-cancel-cred
+ExpiredToken
+InvalidClientTokenId
+```
+
+Restart the Learner Lab, copy the new credentials, and verify:
+
+```powershell
+aws sts get-caller-identity
+```
+
+### `LabRole` cannot be found
+
+Confirm that:
+
+```hcl
+lab_role_name = "LabRole"
+```
+
+Do not create an `aws_iam_role` resource. Confirm the correct existing role name with the instructor when necessary.
+
+### Website data is unavailable
+
+Check:
+
+1. The processor Lambda has run successfully.
+2. DynamoDB contains records.
+3. The website Lambda environment contains the correct table name.
+4. The website Lambda CloudWatch logs contain no access error.
+
+### Live conversion is unavailable
+
+Check:
+
+1. The ExchangeRate-API secret contains a valid key.
+2. The API provider account is active.
+3. The provider quota is not exhausted.
+4. The `/api/convert` API Gateway route exists.
+5. The website Lambda CloudWatch logs.
+
+### SNS email does not arrive
+
+Check:
+
+1. The SNS subscription is confirmed.
+2. The message is not in the spam folder.
+3. A previous historical observation exists.
+4. The configured threshold was actually crossed.
+
+### EventBridge runs at an unexpected time
+
+The default schedule is:
+
+```text
+cron(0 7 * * ? *)
+```
+
+This means 07:00 UTC, not necessarily 07:00 local time.
+
+## Cleanup
+
+After the capstone is complete:
 
 ```powershell
 terraform destroy
 ```
 
-Then confirm that the DynamoDB table, Lambda function, EventBridge rule, SNS topic, secret, log group, and alarm are gone. The secret uses a zero-day recovery window so Terraform can remove it immediately in the temporary Learner Lab.
+Review the destruction plan before confirming.
 
-## Troubleshooting
+## Repository Safety
 
-### `NoSuchEntity: Role with name LabRole cannot be found`
+The following files must never be committed:
 
-1. Confirm that the AWS Academy Learner Lab is started.
-2. Refresh the temporary AWS CLI credentials from **AWS Details**.
-3. Verify the active credentials:
+```text
+terraform.tfvars
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+tfplan
+AWS credentials
+API keys
+generated Lambda ZIP files
+.venv/
+__pycache__/
+```
 
-```powershell
-aws sts get-caller-identity
+## Final Deliverables
 
-Use the exact existing lab role name in `terraform.tfvars`. Do not add an `aws_iam_role` resource because Learner Lab commonly blocks role creation.
-
-### `ExpiredToken` or `InvalidClientTokenId`
-
-Restart the Learner Lab and replace the local AWS credentials with the new temporary values.
-
-### Lambda reports `AccessDeniedException`
-
-Read the denied action in CloudWatch logs. The required categories are Secrets Manager read, DynamoDB read/write, SNS publish, and CloudWatch Logs. This project intentionally uses the existing `LabRole`; only an instructor or the lab configuration can expand that role if it is restricted.
-
-### Lambda reports `invalid-key`, `inactive-account`, or `quota-reached`
-
-Open the ExchangeRate-API dashboard and verify that the account is confirmed and the key is active. Re-run the `put-secret-value` command after correcting the key.
-
-### No SNS email arrives
-
-Check that the subscription is `Confirmed`, inspect the spam folder, and verify that the threshold was actually crossed. The first real invocation has no previous daily record, so it cannot calculate a daily movement.
-
-### EventBridge does not run at local 07:00
-
-The default cron is 07:00 **UTC**, not German local time. Change `schedule_expression` if your demonstration requires a different UTC time.
+- Source-code ZIP
+- GitHub repository
+- README
+- Live AWS website
+- PowerPoint presentation
+- Architecture diagram
