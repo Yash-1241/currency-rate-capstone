@@ -79,7 +79,6 @@ Verify them in PowerShell:
 
 ```powershell
 aws sts get-caller-identity
-aws iam get-role --role-name LabRole
 ```
 
 Both commands must succeed before Terraform is run. Learner Lab credentials expire, so repeat this step after restarting the lab.
