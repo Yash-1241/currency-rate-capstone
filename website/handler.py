@@ -87,7 +87,11 @@ def parse_pairs(raw_pairs: str) -> list[str]:
     pairs: list[str] = []
     for raw_pair in raw_pairs.split(","):
         pair = raw_pair.strip().upper()
-        if pair and pair not in pairs:
+        if not pair:
+            continue
+        if not re.fullmatch(r"[A-Z]{3}/[A-Z]{3}", pair):
+            raise RuntimeError(f"Invalid currency pair '{raw_pair}'. Use BASE/QUOTE, e.g. EUR/INR.")
+        if pair not in pairs:
             pairs.append(pair)
     if not pairs:
         raise RuntimeError("CURRENCY_PAIRS is empty.")
