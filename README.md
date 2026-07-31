@@ -581,12 +581,3 @@ generated Lambda ZIP files
 .venv/
 __pycache__/
 ```
-
-## Final Deliverables
-
-- Source-code ZIP
-- GitHub repository
-- README
-- Live AWS website
-- PowerPoint presentation
-- Architecture diagram
