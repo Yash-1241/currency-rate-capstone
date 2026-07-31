@@ -5,14 +5,16 @@ capstone. It does not create an IAM role or IAM policy.
 
 ## Architecture
 
-Browser -> API Gateway HTTP API -> Website Lambda -> Existing DynamoDB table
+Browser -> API Gateway HTTP API -> Website Lambda -> DynamoDB / Secrets Manager / ExchangeRate-API
 
 The website Lambda:
 - Serves `index.html` at `/`
 - Returns read-only JSON at `/api/rates`
 - Returns health information at `/health`
+- Performs live currency conversions at `/api/convert`
 - Reuses the existing AWS Academy `LabRole`
-- Does not call ExchangeRate-API
+- Calls ExchangeRate-API only for live conversion requests
+- Never exposes the API key to the browser
 - Does not write to DynamoDB
 
 ## Copy into the repository
@@ -40,7 +42,7 @@ Review the plan. It should add:
 - One Lambda CloudWatch log group
 - One HTTP API
 - One Lambda integration
-- Four HTTP routes
+- Five HTTP routes
 - One default API stage
 - One Lambda permission for API Gateway
 
